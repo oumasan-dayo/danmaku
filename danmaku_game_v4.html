@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>弾幕ゲーム（仮）</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070914;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;touch-action:none}
+body{display:flex;justify-content:center}
+#app{position:relative;width:100%;height:100%;max-width:600px;overflow:hidden;background:radial-gradient(circle at 50% 20%,#151b38 0,#090b19 48%,#05060d 100%)}
+canvas{position:absolute;inset:0;width:100%;height:100%}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;z-index:5}
+.hidden{display:none!important}
+h1{font-size:clamp(32px,10vw,54px);margin:0 0 12px;font-weight:900;letter-spacing:.04em;text-shadow:0 0 24px #667cff}
+.sub{opacity:.65;margin-bottom:34px;font-size:14px}
+.scorebox{padding:15px 35px;border:1px solid #5364c8;border-radius:18px;background:#11162b;box-shadow:0 0 30px #26346d55;text-align:center;margin-bottom:28px}
+.scorebox small{display:block;opacity:.6;font-size:12px;margin-bottom:4px}
+.scorebox strong{font-size:31px}
+button{width:min(300px,86vw);padding:16px 20px;margin:7px;border:1px solid #6475e8;border-radius:14px;background:linear-gradient(180deg,#293678,#18204b);color:white;font-size:17px;font-weight:800;box-shadow:0 8px 25px #0005}
+button:active{transform:scale(.97);background:#34438e}
+#gameUI{position:absolute;top:max(15px,env(safe-area-inset-top));left:0;right:0;padding:0 17px;display:flex;justify-content:space-between;z-index:4;font-weight:800;text-shadow:0 2px 5px #000}
+#gameUI span{font-size:14px}
+#ranking{justify-content:flex-start;padding-top:max(35px,env(safe-area-inset-top))}
+#ranking h2{margin:0 0 15px;font-size:30px}
+#rankList{width:min(390px,92vw);max-height:58vh;overflow:auto;border:1px solid #303963;border-radius:16px;background:#0d1122}
+.rank{display:grid;grid-template-columns:48px 1fr 90px;gap:5px;align-items:center;padding:13px 15px;border-bottom:1px solid #202642}
+.rank:last-child{border-bottom:0}
+.rank .num{font-weight:900;color:#94a4ff}
+.rank .date{font-size:12px;opacity:.65}
+.rank .pts{text-align:right;font-weight:900}
+.empty{padding:28px;text-align:center;opacity:.5}
+#controls{position:absolute;left:0;right:0;bottom:0;height:28%;min-height:145px;display:flex;z-index:3}
+.ctrl{flex:1;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:300;color:#fff8;background:linear-gradient(transparent,#11193633)}
+#gameOver .result{font-size:42px;font-weight:900;margin:5px 0 22px}
+#gameOver .new{font-size:13px;color:#9eafff;margin-bottom:8px}
+.tip{font-size:12px;opacity:.45;margin-top:17px}
+</style>
+</head>
+<body>
+<div id="app">
+<canvas id="game"></canvas>
+
+<div id="title" class="screen">
+  <h1>弾幕ゲーム（仮）</h1>
+  <div class="sub">左右に動いて、できるだけ長く生き残れ。</div>
+  <div class="scorebox"><small>HIGH SCORE</small><strong id="highScore">0</strong></div><input id="nameInput" maxlength="10" placeholder="名前を入力（10文字まで）" autocomplete="off">
+  <button id="startBtn">START</button>
+  <button id="rankBtn">ランキング</button>
+  <div class="tip">画面の左半分・右半分をタップして操作</div>
+</div>
+
+<div id="ranking" class="screen hidden">
+  <h2>ランキング</h2>
+  <div id="rankList"></div>
+  <button id="resetRankBtn">ランキングをリセット</button><button id="backBtn">戻る</button>
+</div>
+
+<div id="gameUI" class="hidden">
+  <span id="score">SCORE 0</span>
+  <span id="time">TIME 0.0</span><span id="elapsed">0.0s</span>
+</div>
+
+<div id="controls" class="hidden">
+  <div class="ctrl" id="left">‹</div>
+  <div class="ctrl" id="right">›</div>
+</div>
+
+<div id="gameOver" class="screen hidden">
+  <div class="sub">GAME OVER</div>
+  <div class="result" id="finalScore">0</div>
+  <div id="newRecord" class="new hidden">★ NEW HIGH SCORE ★</div>
+  <button id="retryBtn">もう一度</button>
+  <button id="titleBtn">タイトルへ</button>
+</div>
+</div>
+
+<script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const app=document.getElementById('app');
+let W,H,dpr,player,bullets=[],particles=[],running=false,startTime,last=0,score=0,spawnTimer=0,patternTimer=0,pattern=0,keys={left:false,right:false};
+let high=Number(localStorage.getItem('danmakuHigh')||0);
+let lastPattern=-1;
+let ranking=JSON.parse(localStorage.getItem('danmakuRanking')||'[]');
+
+function resize(){
+  W=app.clientWidth; H=app.clientHeight; dpr=Math.min(devicePixelRatio||1,2);
+  canvas.width=W*dpr; canvas.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(player) player.y=H*.78;
+}
+addEventListener('resize',resize); resize();
+
+function show(id){
+  ['title','ranking','gameOver'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id));
+  document.getElementById('gameUI').classList.toggle('hidden',id!=='game');
+  document.getElementById('controls').classList.toggle('hidden',id!=='game');
+}
+function renderRanking(){
+  const box=document.getElementById('rankList');
+  if(!ranking.length){box.innerHTML='<div class="empty">まだ記録がありません</div>';return}
+  box.innerHTML=ranking.slice(0,30).map((r,i)=>`<div class="rank"><div class="num">#${i+1}</div><div class="date">${r.date}</div><div class="pts">${r.score.toLocaleString()}</div></div>`).join('');
+}
+document.getElementById('highScore').textContent=high.toLocaleString();
+document.getElementById('rankBtn').onclick=()=>{renderRanking();show('ranking')};
+document.getElementById('backBtn').onclick=()=>show('title');
+document.getElementById('startBtn').onclick=startGame;
+document.getElementById('retryBtn').onclick=startGame;
+document.getElementById('titleBtn').onclick=()=>show('title');
+
+function startGame(){const name=(document.getElementById('nameInput').value.trim()||'PLAYER').slice(0,10);localStorage.setItem('danmakuName',name);
+  player={x:W/2,y:H*.78,r:10,speed:W*.48};
+  bullets=[];particles=[];score=0;spawnTimer=0;patternTimer=0;pattern=0;lastPattern=-1;running=true;startTime=performance.now();last=startTime;
+  show('game');requestAnimationFrame(loop);
+}
+function endGame(){
+  running=false;
+  const final=Math.floor(score);
+  const isNew=final>high;
+  if(isNew){high=final;localStorage.setItem('danmakuHigh',high);document.getElementById('highScore').textContent=high.toLocaleString()}
+  ranking.push({name:localStorage.getItem('danmakuName')||'PLAYER',score:final,date:new Date().toLocaleString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})});
+  ranking.sort((a,b)=>b.score-a.score); ranking=ranking.slice(0,30);
+  localStorage.setItem('danmakuRanking',JSON.stringify(ranking));
+  document.getElementById('finalScore').textContent=final.toLocaleString();
+  document.getElementById('newRecord').classList.toggle('hidden',!isNew);
+  show('gameOver');
+}
+
+function addBullet(x,y,vx,vy,r=6){
+  bullets.push({x,y,vx,vy,r,speed:Math.hypot(vx,vy)});
+}
+function spawn(){
+  const t=(performance.now()-startTime)/1000;
+  const H=Math.max(1,canvas.height), W=Math.max(1,canvas.width), cx=W/2;
+  const speed=H*(.105+Math.min(t,90)*.0009);
+  const hard=(t%30)<7;
+
+  if(hard){
+    const mode=Math.floor(Math.random()*5);
+    if(mode===0){
+      const left=Math.random()<.5, n=9+Math.floor(Math.random()*5);
+      for(let i=0;i<n;i++){
+        const y=-18-i*18, x=left?-12-i*7:W+12+i*7;
+        const a=left?.28+Math.random()*.28:Math.PI-(.28+Math.random()*.28);
+        addBullet(x,y,Math.cos(a)*speed*.8,Math.sin(a)*speed*.8,5);
+      }
+    }else if(mode===1){
+      for(let i=0;i<15;i++){
+        const x=Math.random()*W, a=(Math.random()-.5)*1.15;
+        addBullet(x,-12,Math.sin(a)*speed*.75,Math.cos(a)*speed,4.5);
+      }
+    }else if(mode===2){
+      const base=Math.random()*W;
+      for(let i=0;i<11;i++){
+        const x=base+Math.sin(i*.8)*W*.13+i*W*.012, a=.38+Math.sin(i*.9)*.34;
+        addBullet(x,-10-i*10,Math.sin(a)*speed*.8,Math.cos(a)*speed*.82,5);
+      }
+    }else if(mode===3){
+      const left=Math.random()<.65;
+      for(let i=0;i<12;i++){
+        const x=left?-20:W+20, y=45+i*45+Math.random()*25;
+        const tx=cx+(Math.random()-.35)*W*.75, ty=H*.72+Math.random()*H*.2;
+        const dx=tx-x,dy=ty-y,len=Math.hypot(dx,dy)||1;
+        addBullet(x,y,dx/len*speed*.78,dy/len*speed*.78,5);
+      }
+    }else{
+      const side=Math.random()<.5?-1:1;
+      for(let i=0;i<13;i++){
+        const x=side<0?Math.random()*W*.35:W-W*Math.random()*.35;
+        const a=(side<0?.18:Math.PI-.18)+(Math.random()-.5)*.75;
+        addBullet(x,-15-i*7,Math.cos(a)*speed*.8,Math.sin(a)*speed*.8,4.5);
+      }
+    }
+    return;
+  }
+
+  let type=Math.floor(Math.random()*14);
+  if(type===lastPattern) type=(type+1+Math.floor(Math.random()*13))%14;
+  lastPattern=type;
+
+  switch(type){
+    case 0:{
+      const x=Math.random()*W*.8+W*.1,n=7+Math.floor(Math.random()*4),c=.55+(Math.random()-.5)*.7;
+      for(let i=0;i<n;i++){const a=c+(i-(n-1)/2)*.16;addBullet(x,-12,Math.cos(a)*speed*.72,Math.sin(a)*speed*.72,5);}
+      break;
+    }
+    case 1:{
+      const n=8+Math.floor(Math.random()*4);
+      for(let i=0;i<n;i++) addBullet(-15-i*9,-20-i*28-Math.random()*20,speed*(.48+Math.random()*.22),speed*(.65+Math.random()*.25),4.5);
+      break;
+    }
+    case 2:{
+      const n=8+Math.floor(Math.random()*4);
+      for(let i=0;i<n;i++) addBullet(W+15+i*9,-20-i*30-Math.random()*20,-speed*(.48+Math.random()*.22),speed*(.65+Math.random()*.25),4.5);
+      break;
+    }
+    case 3:{
+      const x=W*(.2+Math.random()*.6),p=Math.random()*Math.PI*2;
+      for(let i=0;i<10;i++){const a=p+i*.29;addBullet(x+Math.sin(i*.7)*W*.06,-10-i*9,Math.cos(a)*speed*.7,Math.sin(a)*speed*.7,4.5);}
+      break;
+    }
+    case 4:{
+      const sx=Math.random()*W,sy=-10,dx=player.x+(Math.random()-.5)*W*.5-sx,dy=player.y-sy,base=Math.atan2(dy,dx);
+      for(let i=0;i<7;i++){const a=base+(i-3)*.085+(Math.random()-.5)*.06,sp=speed*(.72+Math.random()*.18);addBullet(sx,sy,Math.cos(a)*sp,Math.sin(a)*sp,4.5);}
+      break;
+    }
+    case 5:{
+      const apex=W*(.15+Math.random()*.7),dir=Math.random()<.5?-1:1;
+      for(let i=0;i<9;i++){const a=(dir<0?.95:2.2)+(i-4)*.07;addBullet(apex+(i-4)*8,-10,Math.cos(a)*speed*.7,Math.sin(a)*speed*.7,4.5);}
+      break;
+    }
+    case 6:{
+      const n=10+Math.floor(Math.random()*6);
+      for(let i=0;i<n;i++){const x=Math.random()*W,a=(Math.random()-.5)*.9,sp=speed*(.58+Math.random()*.3);addBullet(x,-10,Math.sin(a)*sp,Math.cos(a)*sp,4);}
+      break;
+    }
+    case 7:{
+      for(let i=0;i<12;i++){const a=.16+Math.sin(i*.75)*.32,sp=speed*.7;addBullet(-12,30+i*35,Math.cos(a)*sp,Math.sin(a)*sp,4.5);}
+      break;
+    }
+    case 8:{
+      for(let i=0;i<12;i++){const a=Math.PI-.16+Math.sin(i*.72)*.32,sp=speed*.7;addBullet(W+12,35+i*34,Math.cos(a)*sp,Math.sin(a)*sp,4.5);}
+      break;
+    }
+    case 9:{
+      for(let i=0;i<9;i++){const x=W*(.08+i*.1)+(Math.random()-.5)*W*.07,a=.18+(i%3)*.13,sp=speed*(.55+(i%4)*.07);addBullet(x,-12-i*24,Math.sin(a)*sp,Math.cos(a)*sp,4.5);}
+      break;
+    }
+    case 10:{
+      const x=Math.random()*W;
+      for(let i=0;i<14;i++){const a=.55+(Math.random()-.5)*.18,sp=speed*(.5+Math.random()*.25);addBullet(x+(i%2)*W*.04,-10-i*22,Math.sin(a)*sp,Math.cos(a)*sp,4);}
+      break;
+    }
+    case 11:{
+      for(let i=0;i<10;i++){const a=.18+i*.045,sp=speed*.72;addBullet(-10+i*12,-15+i*12,Math.cos(a)*sp,Math.sin(a)*sp,4.5);}
+      break;
+    }
+    case 12:{
+      for(let i=0;i<10;i++){const a=Math.PI-.18-i*.045,sp=speed*.72;addBullet(W+10-i*12,-15+i*12,Math.cos(a)*sp,Math.sin(a)*sp,4.5);}
+      break;
+    }
+    case 13:{
+      const sx=Math.random()*W,base=.35+(Math.random()-.5)*.7,n=8+Math.floor(Math.random()*5);
+      for(let i=0;i<n;i++){const a=base+(Math.random()-.5)*.65,sp=speed*(.55+Math.random()*.35);addBullet(sx,-10,Math.cos(a)*sp,Math.sin(a)*sp,4.5);}
+      break;
+    }
+  }
+}
+function update(dt){
+  const t=(performance.now()-startTime)/1000;
+  score=t*60;
+  const dir=(keys.right?1:0)-(keys.left?1:0);
+  player.x+=dir*player.speed*dt;
+  player.x=Math.max(player.r+4,Math.min(W-player.r-4,player.x));
+
+  // 指操作がない場合でも左右タップで操作できる
+  spawnTimer-=dt; patternTimer+=dt;
+  const interval=Math.max(.34,.68-t*.0032);
+  if(spawnTimer<=0){spawn();spawnTimer=interval}
+  bullets.forEach(b=>{b.x+=b.vx*dt;b.y+=b.vy*dt});
+  bullets=bullets.filter(b=>b.y<H+30 && b.x>-50 && b.x<W+50);
+
+  for(const b of bullets){
+    const dx=b.x-player.x,dy=b.y-player.y;
+    if(dx*dx+dy*dy<(b.r+player.r-2)**2){endGame();return}
+  }
+  // 粒子
+  particles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt});
+  particles=particles.filter(p=>p.life>0);
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  // 星
+  ctx.fillStyle='#ffffff22';
+  for(let i=0;i<45;i++){
+    const x=(i*83)%W,y=((i*137)+(performance.now()*.01*i))%H;
+    ctx.fillRect(x,y,1.5,1.5);
+  }
+  // 弾
+  for(const b of bullets){
+    ctx.beginPath();ctx.arc(b.x,b.y,b.r+4,0,Math.PI*2);ctx.fillStyle='#ff557722';ctx.fill();
+    ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fillStyle='#ff718c';ctx.fill();
+    ctx.beginPath();ctx.arc(b.x-b.r*.3,b.y-b.r*.3,b.r*.25,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  }
+  // プレイヤー
+  if(player){
+    ctx.beginPath();ctx.arc(player.x,player.y,player.r+9,0,Math.PI*2);ctx.fillStyle='#6c7cff22';ctx.fill();
+    ctx.beginPath();ctx.arc(player.x,player.y,player.r,0,Math.PI*2);ctx.fillStyle='#aab5ff';ctx.fill();
+    ctx.beginPath();ctx.arc(player.x,player.y,4,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  }
+}
+function loop(now){
+  if(!running)return;
+  const dt=Math.min(.033,(now-last)/1000);last=now;
+  update(dt);draw();
+  document.getElementById('score').textContent='SCORE '+Math.floor(score).toLocaleString();
+  const elapsed=(now-startTime)/1000;document.getElementById('time').textContent='TIME '+elapsed.toFixed(1);document.getElementById('elapsed').textContent=elapsed.toFixed(1)+'s';
+  if(running)requestAnimationFrame(loop);
+}
+
+function bind(el,side){
+  const down=e=>{e.preventDefault();keys[side]=true};
+  const up=e=>{e.preventDefault();keys[side]=false};
+  el.addEventListener('pointerdown',down);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);el.addEventListener('pointerleave',up);
+}
+bind(document.getElementById('left'),'left');bind(document.getElementById('right'),'right');
+addEventListener('keydown',e=>{if(e.key==='ArrowLeft')keys.left=true;if(e.key==='ArrowRight')keys.right=true});
+addEventListener('keyup',e=>{if(e.key==='ArrowLeft')keys.left=false;if(e.key==='ArrowRight')keys.right=false});
+show('title');
+document.addEventListener('gesturestart',e=>e.preventDefault(),{passive:false});document.addEventListener('gesturechange',e=>e.preventDefault(),{passive:false});document.addEventListener('gestureend',e=>e.preventDefault(),{passive:false});document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});document.addEventListener('touchmove',e=>{if(running)e.preventDefault()},{passive:false});</script>
+</body>
+</html>
