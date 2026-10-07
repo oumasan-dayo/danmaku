@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>弾幕ゲーム（仮）</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070914;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+body{display:flex;justify-content:center}
+#app{position:relative;width:100%;height:100%;max-width:600px;overflow:hidden;background:radial-gradient(circle at 50% 20%,#151b38 0,#090b19 48%,#05060d 100%)}
+canvas{position:absolute;inset:0;width:100%;height:100%}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;z-index:5}
+.hidden{display:none!important}
+button{width:min(300px,86vw);padding:16px 20px;margin:7px;border:1px solid #6475e8;border-radius:14px;background:linear-gradient(180deg,#293678,#18204b);color:white;font-size:17px;font-weight:800;box-shadow:0 8px 25px #0005;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s}
+button:active{transform:scale(.97);background:#34438e}
+#nameInput{width:min(300px,86vw);padding:14px 18px;margin:0 0 12px;border:1px solid #5364c8;border-radius:12px;background:#0d1122;color:#fff;font-size:16px;text-align:center;outline:none}
+#nameInput::placeholder{color:#667}
+
+#title{overflow:hidden}
+#title .title-deco{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+#title .title-deco .orb{position:absolute;border-radius:50%;filter:blur(40px);opacity:.35;animation:orbFloat 8s ease-in-out infinite}
+#title .title-deco .orb.o1{width:180px;height:180px;background:#4f6bff;top:8%;left:10%}
+#title .title-deco .orb.o2{width:140px;height:140px;background:#ff4f8b;bottom:18%;right:5%;animation-delay:-3s;opacity:.28}
+#title .title-deco .orb.o3{width:100px;height:100px;background:#7cf;top:42%;right:18%;animation-delay:-5s;opacity:.22}
+@keyframes orbFloat{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(12px,-18px) scale(1.08)}}
+#title .title-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;width:100%}
+#title .logo-wrap{position:relative;margin-bottom:6px;text-align:center}
+#title .logo-wrap::before{content:"";position:absolute;left:50%;top:50%;width:min(280px,80vw);height:min(280px,80vw);transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(102,124,255,.18) 0%,transparent 68%);pointer-events:none;animation:pulseGlow 3.2s ease-in-out infinite}
+@keyframes pulseGlow{0%,100%{opacity:.7;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}}
+#title h1{font-size:clamp(36px,11vw,58px);margin:0;font-weight:900;letter-spacing:.08em;background:linear-gradient(135deg,#e8ecff 0%,#8ea0ff 40%,#ff7eb3 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 18px rgba(102,124,255,.55))}
+#title .logo-sub{display:block;margin-top:6px;font-size:11px;letter-spacing:.35em;text-transform:uppercase;color:#8ea0ff;opacity:.85}
+#title .sub{margin:18px 0 18px;font-size:13px;letter-spacing:.04em;opacity:.7;line-height:1.55;text-align:center;max-width:300px}
+#title .scorebox{position:relative;padding:14px 36px;border:1px solid rgba(110,130,255,.55);border-radius:20px;background:linear-gradient(160deg,rgba(22,28,58,.95),rgba(12,14,32,.98));box-shadow:0 0 0 1px rgba(255,255,255,.04) inset,0 12px 40px rgba(40,60,160,.35);margin-bottom:10px;overflow:hidden;text-align:center}
+#title .scorebox::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,#8ea0ff88,transparent)}
+#title .scorebox small{display:block;letter-spacing:.15em;font-size:10px;color:#94a4ff;margin-bottom:2px}
+#title .scorebox strong{font-size:26px;background:linear-gradient(180deg,#fff,#aab5ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+#title .score-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;justify-content:center}
+#title .score-row .scorebox{margin-bottom:0;padding:12px 20px;min-width:130px}
+#title #nameInput{border:1px solid rgba(100,120,230,.45);border-radius:14px;background:rgba(10,14,32,.85);transition:border-color .2s,box-shadow .2s}
+#title #nameInput:focus{border-color:#8ea0ff;box-shadow:0 0 0 3px rgba(102,124,255,.2)}
+#title #normalBtn{border:none;background:linear-gradient(180deg,#4a5fe0,#2a3a9a);box-shadow:0 8px 28px rgba(60,80,220,.45),0 0 0 1px rgba(150,170,255,.25) inset;letter-spacing:.06em;position:relative;overflow:hidden}
+#title #normalBtn::after{content:"";position:absolute;top:0;left:-40%;width:40%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);animation:btnShine 2.8s ease-in-out infinite}
+@keyframes btnShine{0%{left:-40%}50%,100%{left:120%}}
+#title #endlessBtn{background:linear-gradient(180deg,#6a3a8a,#3a2058);border-color:rgba(180,100,220,.5)}
+#title #rankBtn{background:linear-gradient(180deg,rgba(40,48,90,.9),rgba(22,28,55,.95));border-color:rgba(100,120,200,.4);font-size:15px}
+#title .tip{margin-top:16px;padding:8px 16px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);font-size:11px;opacity:.55}
+#title .divider{width:min(200px,50vw);height:1px;margin:4px 0 14px;background:linear-gradient(90deg,transparent,#5364c888,transparent)}
+.mode-hint{font-size:11px;opacity:.5;margin:-2px 0 4px;text-align:center}
+
+#gameUI{position:absolute;top:max(15px,env(safe-area-inset-top));left:0;right:0;padding:0 17px;display:flex;justify-content:space-between;align-items:center;z-index:4;font-weight:800;text-shadow:0 2px 5px #000}
+#gameUI span{font-size:14px}
+#pauseBtn{width:auto;min-width:0;padding:8px 14px;margin:0;font-size:13px;border-radius:10px;background:linear-gradient(180deg,#293678,#18204b);border:1px solid #6475e8;box-shadow:0 4px 12px #0005}
+#pauseOverlay{background:rgba(5,6,13,.78);backdrop-filter:blur(6px)}
+#pauseOverlay h2{font-size:36px;margin:0 0 8px;font-weight:900;letter-spacing:.06em;text-shadow:0 0 20px #667cff}
+
+#ranking{justify-content:flex-start;padding-top:max(35px,env(safe-area-inset-top))}
+#ranking h2{margin:0 0 8px;font-size:28px}
+#ranking .rank-sub{opacity:.55;font-size:13px;margin-bottom:16px}
+#rankMenu{width:min(390px,92vw);display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+.rankMenuBtn{width:100%;text-align:left;padding:18px 20px;display:flex;flex-direction:column;gap:4px}
+.rankMenuBtn .rm-title{font-size:17px}
+.rankMenuBtn .rm-desc{font-size:12px;opacity:.55;font-weight:600}
+#rankList{width:min(390px,92vw);max-height:50vh;overflow:auto;border:1px solid #303963;border-radius:16px;background:#0d1122;margin-bottom:12px}
+.rankRow{display:grid;grid-template-columns:42px 1fr auto;gap:10px;align-items:center;padding:12px 8px;border-bottom:1px solid rgba(255,255,255,.09)}
+.rankNo{opacity:.65}
+.rankName{font-weight:700;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rankScore{font-variant-numeric:tabular-nums}
+.rankDate{grid-column:2/-1;opacity:.45;font-size:11px;text-align:left;margin-top:-8px}
+
+#controls{position:absolute;left:0;right:0;bottom:0;height:28%;min-height:145px;display:flex;z-index:3}
+.ctrl{flex:1;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:300;color:#fff8;background:linear-gradient(transparent,#11193633);user-select:none}
+.ctrl:active{background:linear-gradient(transparent,#2a3a6a55)}
+#diffRow{display:flex;gap:8px;width:min(300px,86vw);margin:0 0 8px}
+.diffBtn{flex:1;padding:10px 6px;margin:0;font-size:13px;border-radius:10px;opacity:.65}
+.diffBtn.on{opacity:1;border-color:#9eafff;box-shadow:0 0 16px rgba(100,120,255,.35)}
+#rankDiffMenu{width:min(390px,92vw);display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+#gameOver .result{font-size:42px;font-weight:900;margin:5px 0 12px}
+#gameOver .new{font-size:13px;color:#9eafff;margin-bottom:8px}
+#gameOver .mode-label{font-size:12px;opacity:.55;letter-spacing:.12em;margin-bottom:4px}
+#deathTip{width:min(340px,90vw);margin:4px 0 16px;padding:14px 16px;border-radius:14px;border:1px solid rgba(148,164,255,.35);background:rgba(16,20,40,.9);text-align:left;line-height:1.55}
+#deathTip .dt-wave{font-size:11px;letter-spacing:.08em;color:#9eafff;margin-bottom:4px;font-weight:700}
+#deathTip .dt-title{font-size:15px;font-weight:800;margin-bottom:6px}
+#deathTip .dt-body{font-size:13px;opacity:.8;font-weight:500}
+#gameClear .result{font-size:42px;font-weight:900;margin:5px 0 12px;color:#9effc8}
+#gameClear h2{font-size:36px;margin:0 0 8px;font-weight:900;letter-spacing:.06em;text-shadow:0 0 20px #4fdf9a}
+</style>
+</head>
+<body>
+<div id="app">
+<canvas id="game"></canvas>
+
+<div id="title" class="screen">
+  <div class="title-deco" aria-hidden="true">
+    <div class="orb o1"></div>
+    <div class="orb o2"></div>
+    <div class="orb o3"></div>
+  </div>
+  <div class="title-content">
+    <div class="logo-wrap">
+      <h1>弾幕ゲーム</h1>
+      <span class="logo-sub">BULLET HELL</span>
+    </div>
+    <div class="sub">通常モードで敵を撃破し、エンドレスで生存記録に挑戦。</div>
+    <div class="score-row">
+      <div class="scorebox"><small>通常 最速</small><strong id="bestTime">--</strong></div>
+      <div class="scorebox"><small>エンドレス 最長</small><strong id="highScore">--</strong></div>
+    </div>
+    <div class="divider"></div>
+    <input id="nameInput" maxlength="10" placeholder="名前を入力（10文字まで）" autocomplete="off">
+    <div class="mode-hint" style="margin-bottom:6px">通常モード難易度</div>
+    <div id="diffRow">
+      <button type="button" class="diffBtn" data-diff="easy">かんたん</button>
+      <button type="button" class="diffBtn on" data-diff="normal">ふつう</button>
+      <button type="button" class="diffBtn" data-diff="hard">むずかしい</button>
+    </div>
+    <button id="normalBtn">▶  通常モード</button>
+    <div class="mode-hint">敵を倒してクリア · タイムで競争</div>
+    <button id="endlessBtn">∞  エンドレスモード</button>
+    <div class="mode-hint">できるだけ長く生き残れ · 生存秒数で競争</div>
+    <button id="rankBtn">ランキング</button>
+    <div class="tip">画面左右をタップ / 十字キー（← →）で操作</div>
+  </div>
+</div>
+
+<div id="ranking" class="screen hidden">
+  <h2 id="rankTitle">ランキング</h2>
+  <div class="rank-sub" id="rankSub">モードを選んでください</div>
+  <div id="rankMenu">
+    <button class="rankMenuBtn" id="rankMenuNormal">
+      <span class="rm-title">通常モード</span>
+      <span class="rm-desc">クリアタイム（早い順）· 難易度別</span>
+    </button>
+    <button class="rankMenuBtn" id="rankMenuEndless">
+      <span class="rm-title">エンドレスモード</span>
+      <span class="rm-desc">生存時間（長い順）</span>
+    </button>
+  </div>
+  <div id="rankDiffMenu" class="hidden">
+    <button class="rankMenuBtn" data-rank-diff="easy"><span class="rm-title">かんたん</span><span class="rm-desc">クリアタイム</span></button>
+    <button class="rankMenuBtn" data-rank-diff="normal"><span class="rm-title">ふつう</span><span class="rm-desc">クリアタイム</span></button>
+    <button class="rankMenuBtn" data-rank-diff="hard"><span class="rm-title">むずかしい</span><span class="rm-desc">クリアタイム</span></button>
+  </div>
+  <div id="rankList" class="hidden"></div>
+  <button id="resetRankBtn" class="hidden">このランキングをリセット</button>
+  <button id="backBtn">戻る</button>
+</div>
+
+<div id="gameUI" class="hidden">
+  <span id="score">TIME 0.0</span>
+  <span id="time">0.0s</span>
+  <button id="pauseBtn" type="button">⏸</button>
+</div>
+
+<div id="controls" class="hidden">
+  <div class="ctrl" id="left">‹</div>
+  <div class="ctrl" id="right">›</div>
+</div>
+
+<div id="pauseOverlay" class="screen hidden">
+  <h2>PAUSED</h2>
+  <div class="sub" style="opacity:.65;margin-bottom:20px">一時停止中</div>
+  <button id="resumeBtn">再開</button>
+  <button id="pauseTitleBtn">タイトルへ</button>
+</div>
+
+<div id="gameOver" class="screen hidden">
+  <div class="mode-label" id="overModeLabel">ENDLESS</div>
+  <div class="sub">GAME OVER</div>
+  <div class="result" id="finalScore">0</div>
+  <div id="newRecord" class="new hidden">★ NEW HIGH SCORE ★</div>
+  <div id="deathTip" class="hidden">
+    <div class="dt-wave" id="deathTipWave"></div>
+    <div class="dt-title" id="deathTipTitle"></div>
+    <div class="dt-body" id="deathTipBody"></div>
+  </div>
+  <button id="retryBtn">もう一度</button>
+  <button id="titleBtn">タイトルへ</button>
+  <button id="rankFromOverBtn">ランキング</button>
+</div>
+
+<div id="gameClear" class="screen hidden">
+  <div class="mode-label">NORMAL</div>
+  <h2>STAGE CLEAR</h2>
+  <div class="sub" style="opacity:.65;margin-bottom:8px">クリアタイム</div>
+  <div class="result" id="clearTime">0.0s</div>
+  <div id="newBestTime" class="new hidden" style="color:#9effc8">★ NEW BEST TIME ★</div>
+  <button id="clearRetryBtn">もう一度</button>
+  <button id="clearTitleBtn">タイトルへ</button>
+  <button id="clearRankBtn">ランキング</button>
+</div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const app = document.getElementById('app');
+
+let W, H, dpr = 1;
+let player, bullets = [], particles = [], beams = [];
+let enemies = [], playerShots = [];
+let running = false, paused = false, startTime = 0, last = 0, score = 0;
+let spawnTimer = 0, beamTimer = 0, patternTimer = 0;
+let keys = { left: false, right: false };
+let high = Number(localStorage.getItem('danmakuBestSurvive') || localStorage.getItem('danmakuHigh') || 0);
+// high is now best survival seconds (migrate old point scores roughly)
+if (high > 500) high = Math.round((high / 60) * 100) / 100;
+let bestTime = Number(localStorage.getItem('danmakuBestTime') || 0);
+let bestTimeByDiff = {
+  easy: Number(localStorage.getItem('danmakuBestTime_easy') || 0),
+  normal: Number(localStorage.getItem('danmakuBestTime_normal') || bestTime || 0),
+  hard: Number(localStorage.getItem('danmakuBestTime_hard') || 0)
+};
+let lastPattern = -1;
+let rankingEndless = [];
+let rankingNormal = { easy: [], normal: [], hard: [] };
+let pauseAccum = 0;
+let gameMode = 'endless'; // 'endless' | 'normal'
+let difficulty = 'normal'; // 'easy' | 'normal' | 'hard'
+let rankView = 'menu'; // 'menu' | 'endless' | 'normal' | 'normal-diff'
+let rankDiffView = 'normal';
+let fireTimer = 0;
+let wave = 0, waveClearDelay = 0, totalWaves = 5;
+let stageCleared = false;
+let pausedByHidden = false;
+let waveTitle = '';
+const PLAYER_SPEED_RATIO = 0.32;
+
+const RANK_ENDLESS = 'danmakuRankingEndless';
+const RANK_NORMAL = {
+  easy: 'danmakuRankingNormal_easy',
+  normal: 'danmakuRankingNormal_normal',
+  hard: 'danmakuRankingNormal_hard'
+};
+const NAME_KEY = 'danmakuName';
+const OLD_RANK = 'danmakuRanking';
+const DIFF_LABEL = { easy: 'かんたん', normal: 'ふつう', hard: 'むずかしい' };
+const DIFF_MOD = {
+  easy:   { hp: 0.7,  fire: 1.35, beam: 1.4, shot: 0.85 },
+  normal: { hp: 1,    fire: 1,    beam: 1,   shot: 1 },
+  hard:   { hp: 1.45, fire: 0.7,  beam: 0.65, shot: 1.15 }
+};
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function show(id) {
+  const screens = ['title', 'ranking', 'gameOver', 'gameClear', 'pauseOverlay'];
+  screens.forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.classList.toggle('hidden', s !== id);
+  });
+  const isGame = (id === 'game');
+  document.getElementById('gameUI').classList.toggle('hidden', !(isGame || id === 'pauseOverlay'));
+  document.getElementById('controls').classList.toggle('hidden', !isGame);
+}
+
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const rect = app.getBoundingClientRect();
+  W = rect.width;
+  H = rect.height;
+  canvas.width = Math.floor(W * dpr);
+  canvas.height = Math.floor(H * dpr);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (player) {
+    player.x = Math.max(player.r + 4, Math.min(W - player.r - 4, player.x));
+    player.y = H * 0.78;
+    player.speed = W * PLAYER_SPEED_RATIO;
+  }
+}
+
+function loadRanking(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    let list = Array.isArray(parsed) ? parsed.filter(r => r && Number.isFinite(Number(r.score))) : [];
+    list = list.map(r => ({
+      name: (typeof r.name === 'string' && r.name.trim()) ? r.name.trim().slice(0, 10) : 'PLAYER',
+      score: Math.max(0, Number(r.score) || 0),
+      date: (typeof r.date === 'string' && r.date) ? r.date : new Date().toLocaleDateString('ja-JP')
+    }));
+    return list;
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveRanking(key, list) {
+  try {
+    localStorage.setItem(key, JSON.stringify(list));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function getCurrentName() {
+  const input = document.getElementById('nameInput');
+  const value = (input?.value || '').trim().replace(/\s+/g, ' ').slice(0, 10);
+  return value || 'PLAYER';
+}
+
+function formatTime(sec) {
+  if (!sec || sec <= 0) return '--';
+  if (sec < 60) return sec.toFixed(2) + 's';
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(2);
+  return m + ':' + (sec % 60 < 10 ? '0' : '') + s;
+}
+
+function normalizeEndlessEntry(r) {
+  // Migrate old point-based scores (score = time * 60) to seconds
+  let s = Number(r.score) || 0;
+  if (s > 500) s = Math.round((s / 60) * 100) / 100;
+  return {
+    name: (typeof r.name === 'string' && r.name.trim()) ? r.name.trim().slice(0, 10) : 'PLAYER',
+    score: Math.max(0, s),
+    date: (typeof r.date === 'string' && r.date) ? r.date : new Date().toLocaleDateString('ja-JP')
+  };
+}
+
+function addEndlessSurvive(seconds) {
+  const name = getCurrentName();
+  try { localStorage.setItem(NAME_KEY, name); } catch (e) {}
+  const sec = Math.round(Math.max(0, seconds) * 100) / 100;
+  rankingEndless.push({
+    name,
+    score: sec,
+    date: new Date().toLocaleDateString('ja-JP')
+  });
+  rankingEndless.sort((a, b) => b.score - a.score); // longer survival first
+  rankingEndless = rankingEndless.slice(0, 30);
+  saveRanking(RANK_ENDLESS, rankingEndless);
+}
+
+function addNormalTime(clearSec, diff) {
+  const d = diff || difficulty;
+  const name = getCurrentName();
+  try { localStorage.setItem(NAME_KEY, name); } catch (e) {}
+  if (!rankingNormal[d]) rankingNormal[d] = [];
+  rankingNormal[d].push({
+    name,
+    score: Math.round(clearSec * 100) / 100,
+    date: new Date().toLocaleDateString('ja-JP')
+  });
+  rankingNormal[d].sort((a, b) => a.score - b.score);
+  rankingNormal[d] = rankingNormal[d].slice(0, 30);
+  saveRanking(RANK_NORMAL[d], rankingNormal[d]);
+}
+
+function renderRankingList(mode, diff) {
+  const el = document.getElementById('rankList');
+  let list;
+  if (mode === 'endless') {
+    list = rankingEndless;
+  } else {
+    list = rankingNormal[diff || rankDiffView] || [];
+  }
+  if (!list.length) {
+    el.innerHTML = '<div style="opacity:.65;padding:20px;text-align:center">まだ記録がありません</div>';
+    return;
+  }
+  el.innerHTML = list.map((r, i) => {
+    const name = esc(r.name || 'PLAYER');
+    const val = formatTime(r.score);
+    return `<div class="rankRow">
+      <span class="rankNo">${i + 1}</span>
+      <span class="rankName">${name}</span>
+      <span class="rankScore">${val}</span>
+      <span class="rankDate">${esc(r.date || '')}</span>
+    </div>`;
+  }).join('');
+}
+
+function openRankMenu() {
+  rankView = 'menu';
+  document.getElementById('rankTitle').textContent = 'ランキング';
+  document.getElementById('rankSub').textContent = 'モードを選んでください';
+  document.getElementById('rankMenu').classList.remove('hidden');
+  document.getElementById('rankDiffMenu').classList.add('hidden');
+  document.getElementById('rankList').classList.add('hidden');
+  document.getElementById('resetRankBtn').classList.add('hidden');
+  show('ranking');
+}
+
+function openRankNormalDiffMenu() {
+  rankView = 'normal-diff';
+  document.getElementById('rankTitle').textContent = '通常モード';
+  document.getElementById('rankSub').textContent = '難易度を選んでください';
+  document.getElementById('rankMenu').classList.add('hidden');
+  document.getElementById('rankDiffMenu').classList.remove('hidden');
+  document.getElementById('rankList').classList.add('hidden');
+  document.getElementById('resetRankBtn').classList.add('hidden');
+  show('ranking');
+}
+
+function openRankDetail(mode, diff) {
+  rankView = mode;
+  rankingEndless = loadRanking(RANK_ENDLESS).map(normalizeEndlessEntry);
+  rankingEndless.sort((a, b) => b.score - a.score);
+  ['easy', 'normal', 'hard'].forEach(d => {
+    rankingNormal[d] = loadRanking(RANK_NORMAL[d]);
+    // migrate old single normal key once into 'normal'
+    if (d === 'normal') {
+      try {
+        const old = localStorage.getItem('danmakuRankingNormal');
+        if (old && rankingNormal.normal.length === 0) {
+          rankingNormal.normal = loadRanking('danmakuRankingNormal');
+          saveRanking(RANK_NORMAL.normal, rankingNormal.normal);
+        }
+      } catch (e) {}
+    }
+  });
+  if (mode === 'endless') {
+    document.getElementById('rankTitle').textContent = 'エンドレスモード';
+    document.getElementById('rankSub').textContent = '生存時間（長い順）';
+  } else {
+    rankDiffView = diff || 'normal';
+    document.getElementById('rankTitle').textContent = '通常 · ' + DIFF_LABEL[rankDiffView];
+    document.getElementById('rankSub').textContent = 'クリアタイム（早い順）';
+  }
+  document.getElementById('rankMenu').classList.add('hidden');
+  document.getElementById('rankDiffMenu').classList.add('hidden');
+  document.getElementById('rankList').classList.remove('hidden');
+  document.getElementById('resetRankBtn').classList.remove('hidden');
+  renderRankingList(mode, rankDiffView);
+  show('ranking');
+}
+
+function getElapsed() {
+  return (performance.now() - startTime - pauseAccum) / 1000;
+}
+
+function startGame(mode) {
+  gameMode = mode || gameMode;
+  const name = getCurrentName();
+  try { localStorage.setItem(NAME_KEY, name); } catch (e) {}
+  player = { x: W / 2, y: H * 0.78, r: 10, speed: W * PLAYER_SPEED_RATIO };
+  bullets = [];
+  particles = [];
+  beams = [];
+  enemies = [];
+  playerShots = [];
+  score = 0;
+  spawnTimer = 0;
+  beamTimer = 1.8;
+  patternTimer = 0;
+  lastPattern = -1;
+  fireTimer = 0;
+  wave = 0;
+  waveClearDelay = 0;
+  stageCleared = false;
+  running = true;
+  paused = false;
+  pauseAccum = 0;
+  startTime = performance.now();
+  last = startTime;
+  keys.left = false;
+  keys.right = false;
+  if (gameMode === 'normal') {
+    spawnWave(1);
+    document.getElementById('score').textContent = DIFF_LABEL[difficulty] + ' 1/' + totalWaves;
+  } else {
+    document.getElementById('score').textContent = 'SURVIVE';
+  }
+  document.getElementById('time').textContent = '0.0s';
+  show('game');
+  requestAnimationFrame(loop);
+}
+
+function pauseGame(fromHidden) {
+  if (!running || paused) return;
+  paused = true;
+  pausedByHidden = !!fromHidden;
+  keys.left = false;
+  keys.right = false;
+  // Background pause: freeze time silently (no overlay)
+  if (!fromHidden) show('pauseOverlay');
+}
+
+function resumeGame() {
+  if (!running || !paused) return;
+  const pauseStart = last;
+  const now = performance.now();
+  // Critical: discard time spent while paused / tab hidden so score doesn't jump
+  pauseAccum += (now - pauseStart);
+  last = now;
+  paused = false;
+  pausedByHidden = false;
+  show('game');
+  requestAnimationFrame(loop);
+}
+
+// Stop score/time while app is in background or screen locked
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (running && !paused) pauseGame(true);
+  } else {
+    if (running && paused && pausedByHidden) resumeGame();
+  }
+});
+window.addEventListener('pagehide', () => {
+  if (running && !paused) pauseGame(true);
+});
+window.addEventListener('blur', () => {
+  // Mobile browsers sometimes fire blur when switching apps
+  if (running && !paused && document.hidden) pauseGame(true);
+});
+
+function goToTitle() {
+  running = false;
+  paused = false;
+  keys.left = false;
+  keys.right = false;
+  bullets = [];
+  particles = [];
+  beams = [];
+  enemies = [];
+  playerShots = [];
+  player = null;
+  pauseAccum = 0;
+  if (W && H) ctx.clearRect(0, 0, W, H);
+  updateTitleStats();
+  show('title');
+}
+
+const DEATH_TIPS = {
+  1: {
+    title: 'ご挨拶です — 攻略ヒント',
+    body: '新人はほぼ動かず、弾も真下だけ。真ん中付近で左右に軽く揺らしながら撃ち続けよう。焦らなくて大丈夫。'
+  },
+  2: {
+    title: 'ジグザグ社員 — 攻略ヒント',
+    body: 'HPは低いが逃げ足が速い。弾を「追う」より、移動の折り返し地点で待ち伏せすると当てやすい。弾は少なめなので被弾より取り逃しに注意。'
+  },
+  3: {
+    title: '営業スマイル — 攻略ヒント',
+    body: '3方向の狙い撃ちがくる。敵の正面に居座りすぎず、弾の隙間を横移動でくぐろう。笑顔の下段から崩すと上段が狙いやすい。'
+  },
+  4: {
+    title: 'レーザー会議 — 攻略ヒント',
+    body: '敵は少ないがビームが本題。予兆の「◀▶」と「右へ／左へ移動」を見て、ビームの進行方向と逆側へ早めに退避。タンク敵は落ち着いて削ればOK。'
+  },
+  5: {
+    title: '最終上司 — 攻略ヒント',
+    body: '先に秘書（📎）を落とすと弾が減って楽。ボスの扇状弾は横に一歩ずれるだけで回避しやすい。ビーム予兆も忘れずに。'
+  }
+};
+
+function endGame() {
+  if (stageCleared) return;
+  running = false;
+  paused = false;
+  const final = Math.floor(score);
+  document.getElementById('overModeLabel').textContent =
+    gameMode === 'normal' ? 'NORMAL' : 'ENDLESS';
+
+  const tipEl = document.getElementById('deathTip');
+  if (gameMode === 'endless') {
+    const survive = getElapsed();
+    const isNew = survive > high;
+    if (isNew) {
+      high = survive;
+      localStorage.setItem('danmakuBestSurvive', String(high));
+    }
+    addEndlessSurvive(survive);
+    document.getElementById('finalScore').textContent = formatTime(survive);
+    document.getElementById('newRecord').classList.toggle('hidden', !isNew);
+    document.getElementById('newRecord').textContent = '★ NEW BEST SURVIVE ★';
+    tipEl.classList.add('hidden');
+    updateTitleStats();
+  } else {
+    // Died in normal — show time + wave-specific advice
+    const t = getElapsed();
+    document.getElementById('finalScore').textContent = formatTime(t);
+    document.getElementById('newRecord').classList.add('hidden');
+    const tip = DEATH_TIPS[wave] || DEATH_TIPS[1];
+    document.getElementById('deathTipWave').textContent =
+      DIFF_LABEL[difficulty] + ' · WAVE ' + wave + '/' + totalWaves + ' で撃破…';
+    document.getElementById('deathTipTitle').textContent = tip.title;
+    document.getElementById('deathTipBody').textContent = tip.body;
+    tipEl.classList.remove('hidden');
+  }
+  show('gameOver');
+}
+
+function clearStage() {
+  if (stageCleared) return;
+  stageCleared = true;
+  running = false;
+  paused = false;
+  const t = getElapsed();
+  const d = difficulty;
+  const prev = bestTimeByDiff[d] || 0;
+  const isNew = !prev || t < prev;
+  if (isNew) {
+    bestTimeByDiff[d] = t;
+    localStorage.setItem('danmakuBestTime_' + d, String(t));
+  }
+  addNormalTime(t, d);
+  document.getElementById('clearTime').textContent = formatTime(t) + '（' + DIFF_LABEL[d] + '）';
+  document.getElementById('newBestTime').classList.toggle('hidden', !isNew);
+  updateTitleStats();
+  show('gameClear');
+}
+
+function updateTitleStats() {
+  document.getElementById('highScore').textContent = formatTime(high);
+  const d = difficulty;
+  document.getElementById('bestTime').textContent = formatTime(bestTimeByDiff[d] || 0);
+}
+
+// ---- bullets / beams (endless + shared enemy fire) ----
+function addBullet(x, y, vx, vy, r = 6) {
+  bullets.push({ x, y, vx, vy, r });
+}
+
+function addBeam(opts) {
+  beams.push({
+    type: opts.type || 'v',
+    x: opts.x,
+    w: opts.w || 36,
+    warn: opts.warn ?? 0.75,
+    life: opts.life ?? 0.4,
+    age: 0,
+    vx: opts.vx || 0,
+    active: false
+  });
+}
+
+function spawnBeams() {
+  const t = getElapsed();
+  const roll = Math.random();
+  if (roll < 0.45) {
+    const x = player.x + (Math.random() - 0.5) * W * 0.35;
+    addBeam({ type: 'v', x: Math.max(24, Math.min(W - 24, x)), w: 36 + Math.random() * 16, warn: 0.75, life: 0.4 });
+  } else if (roll < 0.75) {
+    const gap = 80 + Math.random() * 55;
+    const mid = player.x + (Math.random() - 0.5) * W * 0.2;
+    addBeam({ type: 'v', x: mid - gap / 2, w: 34, warn: 0.85, life: 0.42 });
+    addBeam({ type: 'v', x: mid + gap / 2, w: 34, warn: 0.85, life: 0.42 });
+  } else if (roll < 0.9) {
+    // Short travel only — not a full-screen sweep
+    const fromLeft = Math.random() < 0.5;
+    const startX = fromLeft ? W * 0.28 : W * 0.72;
+    addBeam({
+      type: 'sweep',
+      x: startX,
+      w: 40,
+      warn: 0.75,
+      life: 0.55,
+      vx: (fromLeft ? 1 : -1) * (W * 0.12)
+    });
+  } else {
+    for (let i = 0; i < 3; i++) {
+      addBeam({ type: 'v', x: W * (0.2 + i * 0.3) + (Math.random() - 0.5) * 30, w: 32, warn: 0.9, life: 0.36 });
+    }
+  }
+}
+
+// ---- Endless spawn (kept from previous version, slightly compact) ----
+function spawnEndless() {
+  const t = getElapsed();
+  const speed = H * (0.13 + Math.min(t, 100) * 0.0014);
+  const hard = (t % 22) < 9;
+
+  if (hard) {
+    const mode = Math.floor(Math.random() * 8);
+    if (mode === 0) {
+      const sx = W * (0.15 + Math.random() * 0.7);
+      const base = Math.atan2(player.x - sx, player.y + 30);
+      for (let i = 0; i < 9; i++) {
+        const a = base + (i - 4) * 0.09;
+        const sp = speed * (0.7 + Math.random() * 0.25);
+        addBullet(sx, -8, Math.sin(a) * sp, Math.cos(a) * sp, 4);
+      }
+    } else if (mode === 1) {
+      for (let i = 0; i < 14; i++) {
+        const x = (i / 13) * W + (Math.random() - 0.5) * 12;
+        const a = (Math.random() - 0.5) * 0.35;
+        const sp = speed * (0.55 + Math.random() * 0.35);
+        addBullet(x, -12 - (i % 4) * 14, Math.sin(a) * sp, Math.cos(a) * sp, 3.6);
+      }
+    } else if (mode === 2) {
+      const sx = W * (0.25 + Math.random() * 0.5);
+      const p = Math.random() * Math.PI * 2;
+      for (let i = 0; i < 11; i++) {
+        const a = p + i * 0.42;
+        const sp = speed * 0.72;
+        addBullet(sx + Math.cos(a) * 18, -10 - i * 8, Math.sin(a * 0.4) * sp * 0.35, sp * 0.9, 4);
+      }
+    } else if (mode === 3) {
+      const sx = player.x + (Math.random() - 0.5) * W * 0.2;
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2;
+        const sp = speed * (0.5 + (i % 3) * 0.12);
+        addBullet(sx, -6, Math.cos(a) * sp * 0.55, Math.abs(Math.sin(a)) * sp * 0.35 + sp * 0.55, 4.2);
+      }
+    } else if (mode === 4) {
+      for (let i = 0; i < 12; i++) {
+        const x = (i / 11) * W;
+        const a = Math.sin(i * 0.7 + t) * 0.4;
+        const sp = speed * (0.6 + Math.random() * 0.2);
+        addBullet(x, -10 - Math.abs(Math.sin(i * 0.5)) * 40, Math.sin(a) * sp, Math.cos(a) * sp, 3.8);
+      }
+    } else if (mode === 5) {
+      for (let k = 0; k < 4; k++) {
+        const sx = W * (0.12 + k * 0.25) + (Math.random() - 0.5) * 30;
+        const base = Math.atan2(player.x - sx, player.y + 10);
+        for (let i = -1; i <= 1; i++) {
+          addBullet(sx, -10 - k * 12, Math.sin(base + i * 0.1) * speed * 0.85, Math.cos(base + i * 0.1) * speed * 0.85, 5);
+        }
+      }
+    } else if (mode === 6) {
+      const sx = player.x + (Math.random() - 0.5) * 40;
+      for (let i = 0; i < 8; i++) {
+        const a = Math.atan2(player.x - sx, player.y + 40) + (Math.random() - 0.5) * 0.12;
+        const sp = speed * (0.9 + Math.random() * 0.25);
+        addBullet(sx + (Math.random() - 0.5) * 16, -8 - i * 12, Math.sin(a) * sp, Math.cos(a) * sp, 3.5);
+      }
+    } else {
+      for (let i = 0; i < 9; i++) {
+        const sp = speed * (0.65 + Math.random() * 0.2);
+        addBullet(W * 0.08 + i * 8, -10 - i * 12, sp * 0.28, sp * 0.9, 4);
+        addBullet(W * 0.92 - i * 8, -10 - i * 12, -sp * 0.28, sp * 0.9, 4);
+      }
+    }
+    return;
+  }
+
+  let type = Math.floor(Math.random() * 16);
+  if (type === lastPattern) type = (type + 1) % 16;
+  lastPattern = type;
+  const speedN = speed;
+
+  if (type === 0) {
+    const x = W * (0.2 + Math.random() * 0.6);
+    const base = Math.atan2(player.x - x, player.y + 20);
+    const n = 5 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < n; i++) {
+      const a = base + (i - (n - 1) / 2) * 0.11;
+      addBullet(x, -12, Math.sin(a) * speedN * 0.7, Math.cos(a) * speedN * 0.7, 4.2);
+    }
+  } else if (type === 1) {
+    for (let i = 0; i < 9; i++) {
+      const a = (Math.random() - 0.5) * 0.45;
+      const sp = speedN * (0.55 + Math.random() * 0.35);
+      addBullet(Math.random() * W, -10 - (i % 3) * 14, Math.sin(a) * sp, Math.cos(a) * sp, 3.8);
+    }
+  } else if (type === 2) {
+    const x = W * (0.25 + Math.random() * 0.5);
+    const p = Math.random() * 6.28;
+    for (let i = 0; i < 8; i++) {
+      const a = p + i * 0.45;
+      addBullet(x + Math.sin(a) * W * 0.06, -10 - i * 10, Math.sin(a * 0.3) * speedN * 0.2, speedN * 0.65, 4);
+    }
+  } else if (type === 3) {
+    const sx = Math.random() * W;
+    const base = Math.atan2(player.x - sx, player.y + 25);
+    for (let i = 0; i < 7; i++) {
+      const a = base + (i - 3) * 0.1;
+      addBullet(sx, -8, Math.sin(a) * speedN * 0.7, Math.cos(a) * speedN * 0.7, 4);
+    }
+  } else if (type === 4) {
+    const x = W * (0.2 + Math.random() * 0.6);
+    for (let i = 0; i < 7; i++) {
+      const a = (i - 3) * 0.13;
+      addBullet(x + (i - 3) * 10, -8, Math.sin(a) * speedN * 0.7, Math.cos(a) * speedN * 0.7, 4);
+    }
+  } else if (type === 5) {
+    for (let i = 0; i < 8; i++) {
+      const x = W * (0.08 + i * 0.12);
+      const a = (Math.random() - 0.5) * 0.3;
+      addBullet(x, -10 - i * 20, Math.sin(a) * speedN * 0.6, Math.cos(a) * speedN * 0.6, 4);
+    }
+  } else if (type === 6) {
+    const x = player.x + (Math.random() - 0.5) * W * 0.25;
+    for (let i = 0; i < 9; i++) {
+      const a = (Math.random() - 0.5) * 0.25;
+      addBullet(x + (i % 3 - 1) * 14, -10 - i * 18, Math.sin(a) * speedN * 0.6, Math.cos(a) * speedN * 0.6, 3.6);
+    }
+  } else if (type === 7) {
+    const x = W * (0.15 + Math.random() * 0.7);
+    for (let i = 0; i < 8; i++) {
+      const a = (Math.random() - 0.5) * 0.9;
+      addBullet(x, -10, Math.sin(a) * speedN * 0.6, Math.cos(a) * speedN * 0.6, 3.8);
+    }
+  } else if (type === 8) {
+    for (let i = 0; i < 9; i++) {
+      const x = W * 0.5 + Math.sin(i * 1.1) * W * 0.28;
+      const a = (Math.random() - 0.5) * 0.35;
+      addBullet(x, -10 - i * 16, Math.sin(a) * speedN * 0.65, Math.cos(a) * speedN * 0.65, 4);
+    }
+  } else if (type === 9) {
+    for (let i = 0; i < 10; i++) {
+      const x = (i / 9) * W;
+      const a = 0.2 * (Math.random() < 0.5 ? 1 : -1);
+      addBullet(x, -10 - i * 14, Math.sin(a) * speedN * 0.6, Math.cos(a) * speedN * 0.6, 3.6);
+    }
+  } else if (type === 10) {
+    for (let i = 0; i < 5; i++) {
+      const a = (Math.random() - 0.5) * 0.5;
+      addBullet(Math.random() * W, -14, Math.sin(a) * speedN, Math.cos(a) * speedN, 6.5);
+    }
+  } else if (type === 11) {
+    const x = W * (0.15 + Math.random() * 0.7);
+    for (let i = 0; i < 8; i++) {
+      const a = Math.sin(i * 0.5) * 0.35;
+      addBullet(x + Math.sin(i * 0.7) * W * 0.14, -10 - i * 16, Math.sin(a) * speedN * 0.7, Math.cos(a) * speedN * 0.7, 4);
+    }
+  } else if (type === 12) {
+    const base = W * (0.2 + Math.random() * 0.4);
+    for (let i = 0; i < 10; i++) {
+      const a = Math.sin(i * 0.6) * 0.3;
+      addBullet(base + Math.sin(i * 0.55) * W * 0.3, -8 - i * 16, Math.sin(a) * speedN * 0.65, Math.cos(a) * speedN * 0.65, 4);
+    }
+  } else if (type === 13) {
+    for (let k = 0; k < 2; k++) {
+      const sx = k === 0 ? W * 0.25 : W * 0.75;
+      const base = Math.atan2(player.x - sx, player.y + 15);
+      for (let i = 0; i < 5; i++) {
+        const a = base + (i - 2) * 0.1;
+        addBullet(sx, -10, Math.sin(a) * speedN * 0.75, Math.cos(a) * speedN * 0.75, 4);
+      }
+    }
+  } else if (type === 14) {
+    const x = W * (0.3 + Math.random() * 0.4);
+    for (let i = 0; i < 9; i++) {
+      const a = (i - 4) * 0.13;
+      addBullet(x, -10, Math.sin(a) * speedN * 0.65, Math.cos(a) * speedN * 0.65, 4);
+    }
+  } else {
+    for (let col = 0; col < 4; col++) {
+      const x = W * (0.15 + col * 0.23);
+      for (let i = 0; i < 2; i++) {
+        const a = (Math.random() - 0.5) * 0.2;
+        addBullet(x, -10 - col * 10 - i * 24, Math.sin(a) * speedN * 0.7, Math.cos(a) * speedN * 0.7, 4);
+      }
+    }
+  }
+}
+
+// ---- Normal mode: humorous wave themes ----
+const WAVE_META = [
+  { title: 'ご挨拶です', sub: 'おとなしい新人たち' },
+  { title: 'ジグザグ社員', sub: '逃げ回るだけが取り柄' },
+  { title: '営業スマイル', sub: '笑顔で弾を投げてくる' },
+  { title: 'レーザー会議', sub: '会議がビーム化した' },
+  { title: '最終上司', sub: '今日中に資料出せ' }
+];
+
+function spawnWave(n) {
+  wave = n;
+  enemies = [];
+  waveClearDelay = 0;
+  const meta = WAVE_META[n - 1] || { title: 'WAVE ' + n, sub: '' };
+  waveTitle = meta.title;
+  document.getElementById('score').textContent =
+    DIFF_LABEL[difficulty] + ' ' + n + '/' + totalWaves + ' ' + meta.title;
+
+  const y0 = H * 0.11;
+  const mod = DIFF_MOD[difficulty] || DIFF_MOD.normal;
+  const hp = (v) => Math.max(1, Math.round(v * mod.hp));
+  const cd = (v) => v * mod.fire;
+
+  if (n === 1) {
+    for (let c = 0; c < 5; c++) {
+      const h = hp(3);
+      enemies.push({
+        x: W * (0.15 + c * 0.175), y: y0 + 20,
+        r: 18, hp: h, maxHp: h,
+        phase: c * 0.8, shootCd: cd(3 + Math.random() * 2),
+        kind: 'greet', move: 'bob', label: '🙇'
+      });
+    }
+  } else if (n === 2) {
+    for (let i = 0; i < 6; i++) {
+      const h = hp(2);
+      enemies.push({
+        x: W * (0.1 + (i % 3) * 0.35), y: y0 + Math.floor(i / 3) * 55,
+        r: 14, hp: h, maxHp: h,
+        phase: Math.random() * 6, shootCd: cd(2.2 + Math.random()),
+        kind: 'zigzag', move: 'dash', label: '💨'
+      });
+    }
+  } else if (n === 3) {
+    const smile = [
+      [0.2, 0], [0.35, 0], [0.5, 0], [0.65, 0], [0.8, 0],
+      [0.25, 1], [0.75, 1],
+      [0.35, 2], [0.5, 2], [0.65, 2]
+    ];
+    smile.forEach(([px, row], i) => {
+      const h = hp(4);
+      enemies.push({
+        x: W * px, y: y0 + row * 42,
+        r: 15, hp: h, maxHp: h,
+        phase: i * 0.4, shootCd: cd(1.0 + Math.random() * 0.8),
+        kind: 'smile', move: 'sway', label: '😊'
+      });
+    });
+  } else if (n === 4) {
+    for (let c = 0; c < 3; c++) {
+      const h = hp(8);
+      enemies.push({
+        x: W * (0.25 + c * 0.25), y: y0 + 30,
+        r: 20, hp: h, maxHp: h,
+        phase: c, shootCd: cd(1.6),
+        kind: 'meeting', move: 'slow', label: '📊'
+      });
+    }
+    beamTimer = 0.5 * mod.beam;
+  } else {
+    const hs = hp(6), hb = hp(40);
+    enemies.push({
+      x: W * 0.25, y: y0 + 50, r: 14, hp: hs, maxHp: hs,
+      phase: 0, shootCd: cd(1.2), kind: 'secretary', move: 'orbit', label: '📎'
+    });
+    enemies.push({
+      x: W * 0.75, y: y0 + 50, r: 14, hp: hs, maxHp: hs,
+      phase: Math.PI, shootCd: cd(1.2), kind: 'secretary', move: 'orbit', label: '📎'
+    });
+    enemies.push({
+      x: W / 2, y: y0 + 10, r: 32, hp: hb, maxHp: hb,
+      phase: 0, shootCd: cd(0.5), kind: 'boss', move: 'boss', label: '👔'
+    });
+  }
+}
+
+function updateNormal(dt) {
+  // Player auto-fire
+  fireTimer -= dt;
+  if (fireTimer <= 0) {
+    fireTimer = 0.15;
+    playerShots.push({ x: player.x - 6, y: player.y - 12, vy: -H * 1.15, r: 4 });
+    playerShots.push({ x: player.x + 6, y: player.y - 12, vy: -H * 1.15, r: 4 });
+  }
+  playerShots.forEach(s => { s.y += s.vy * dt; });
+  playerShots = playerShots.filter(s => s.y > -20);
+
+  for (const e of enemies) {
+    e.phase += dt;
+    // Movement styles per wave personality
+    if (e.move === 'bob') {
+      e.y += Math.sin(e.phase * 2) * 12 * dt;
+    } else if (e.move === 'dash') {
+      e.x += Math.sin(e.phase * 3.5) * 90 * dt;
+    } else if (e.move === 'sway') {
+      e.x += Math.sin(e.phase * 1.4) * 35 * dt;
+    } else if (e.move === 'slow') {
+      e.x += Math.sin(e.phase * 0.8) * 20 * dt;
+    } else if (e.move === 'orbit') {
+      e.x += Math.sin(e.phase * 2) * 50 * dt;
+      e.y += Math.cos(e.phase * 2) * 18 * dt;
+    } else if (e.move === 'boss') {
+      e.x += Math.sin(e.phase * 1.1) * 55 * dt;
+    }
+    e.x = Math.max(e.r + 8, Math.min(W - e.r - 8, e.x));
+    e.y = Math.max(e.r + 8, Math.min(H * 0.45, e.y));
+
+    e.shootCd -= dt;
+    if (e.shootCd <= 0) {
+      const sp = H * 0.22 * ((DIFF_MOD[difficulty] || DIFF_MOD.normal).shot);
+      const fm = (DIFF_MOD[difficulty] || DIFF_MOD.normal).fire;
+      if (e.kind === 'greet') {
+        e.shootCd = (2.8 + Math.random()) * fm;
+        addBullet(e.x, e.y + e.r, 0, sp * 0.7, 4);
+      } else if (e.kind === 'zigzag') {
+        e.shootCd = (1.8 + Math.random()) * fm;
+        const a = (Math.random() - 0.5) * 0.6;
+        addBullet(e.x, e.y + e.r, Math.sin(a) * sp, Math.cos(a) * sp, 3.5);
+      } else if (e.kind === 'smile') {
+        e.shootCd = (1.1 + Math.random() * 0.5) * fm;
+        const base = Math.atan2(player.x - e.x, player.y - e.y);
+        for (let i = -1; i <= 1; i++) {
+          const a = base + i * 0.18;
+          addBullet(e.x, e.y + e.r, Math.sin(a) * sp, Math.cos(a) * sp, 4);
+        }
+      } else if (e.kind === 'meeting') {
+        e.shootCd = 1.5 * fm;
+        for (let i = 0; i < 3; i++) {
+          addBullet(e.x + (i - 1) * 12, e.y + e.r, 0, sp * 0.85, 4);
+        }
+      } else if (e.kind === 'secretary') {
+        e.shootCd = 1.3 * fm;
+        const a = Math.atan2(player.x - e.x, player.y - e.y);
+        addBullet(e.x, e.y + e.r, Math.sin(a) * sp, Math.cos(a) * sp, 4);
+      } else if (e.kind === 'boss') {
+        e.shootCd = (0.4 + Math.random() * 0.25) * fm;
+        const pattern = Math.floor(e.phase * 2) % 3;
+        if (pattern === 0) {
+          for (let i = -3; i <= 3; i++) {
+            const a = Math.atan2(player.x - e.x, player.y - e.y) + i * 0.12;
+            addBullet(e.x, e.y + e.r, Math.sin(a) * sp * 1.1, Math.cos(a) * sp * 1.1, 5);
+          }
+        } else if (pattern === 1) {
+          for (let i = 0; i < 8; i++) {
+            const a = (i / 8) * Math.PI + e.phase;
+            addBullet(e.x, e.y, Math.cos(a) * sp * 0.7, Math.abs(Math.sin(a)) * sp * 0.5 + sp * 0.4, 4);
+          }
+        } else {
+          for (let i = -1; i <= 1; i++) {
+            addBullet(e.x + i * 20, e.y + e.r, i * sp * 0.15, sp, 6);
+          }
+        }
+      }
+    }
+  }
+
+  // Player shots vs enemies
+  for (const s of playerShots) {
+    for (const e of enemies) {
+      if (e.hp <= 0) continue;
+      const dx = s.x - e.x, dy = s.y - e.y;
+      if (dx * dx + dy * dy < (s.r + e.r) * (s.r + e.r)) {
+        e.hp -= 1;
+        s.y = -999;
+        particles.push({ x: s.x, y: s.y, vx: (Math.random() - 0.5) * 40, vy: (Math.random() - 0.5) * 40, life: 0.25 });
+        break;
+      }
+    }
+  }
+  playerShots = playerShots.filter(s => s.y > -20);
+  enemies = enemies.filter(e => e.hp > 0);
+
+  // Wave clear
+  if (enemies.length === 0) {
+    if (waveClearDelay <= 0) waveClearDelay = 1.0;
+    waveClearDelay -= dt;
+    if (waveClearDelay <= 0) {
+      if (wave >= totalWaves) {
+        clearStage();
+        return;
+      }
+      spawnWave(wave + 1);
+    }
+  }
+
+  // Beams mainly in wave 4 (レーザー会議) and boss wave
+  beamTimer -= dt;
+  if (beamTimer <= 0 && wave >= 4) {
+    const bm = (DIFF_MOD[difficulty] || DIFF_MOD.normal).beam;
+    if (wave === 4 || Math.random() < 0.55) {
+      const fromLeft = Math.random() < 0.5;
+      const startX = player.x + (fromLeft ? -W * 0.18 : W * 0.18);
+      addBeam({
+        type: 'sweep',
+        x: Math.max(40, Math.min(W - 40, startX)),
+        w: 42,
+        warn: 0.85,
+        life: 0.6,
+        vx: (fromLeft ? 1 : -1) * (W * 0.14)
+      });
+    } else {
+      spawnBeams();
+    }
+    beamTimer = (wave === 4 ? (2.2 + Math.random()) : (3.5 + Math.random() * 2)) * bm;
+  }
+}
+
+function update(dt) {
+  const t = getElapsed();
+  if (gameMode === 'endless') {
+    score = t; // survival seconds
+  }
+
+  const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+  player.x += dir * player.speed * dt;
+  player.x = Math.max(player.r + 4, Math.min(W - player.r - 4, player.x));
+  player.y = H * 0.78;
+
+  if (gameMode === 'endless') {
+    spawnTimer -= dt;
+    beamTimer -= dt;
+    const interval = Math.max(0.28, 0.62 - t * 0.0038);
+    if (spawnTimer <= 0) {
+      spawnEndless();
+      spawnTimer = interval;
+    }
+    const beamInterval = Math.max(2.2, 4.2 - t * 0.025);
+    if (beamTimer <= 0) {
+      spawnBeams();
+      beamTimer = beamInterval * (0.85 + Math.random() * 0.3);
+    }
+  } else {
+    updateNormal(dt);
+    if (!running) return;
+  }
+
+  bullets.forEach(b => { b.x += b.vx * dt; b.y += b.vy * dt; });
+  bullets = bullets.filter(b => b.y < H + 30 && b.x > -50 && b.x < W + 50);
+
+  for (const beam of beams) {
+    beam.age += dt;
+    if (beam.age >= beam.warn) {
+      beam.active = true;
+      if (beam.type === 'sweep') beam.x += beam.vx * dt;
+    }
+  }
+  beams = beams.filter(b => b.age < b.warn + b.life);
+
+  for (const b of bullets) {
+    const dx = b.x - player.x, dy = b.y - player.y;
+    if (dx * dx + dy * dy < (b.r + player.r - 2) ** 2) {
+      endGame();
+      return;
+    }
+  }
+  for (const beam of beams) {
+    if (!beam.active) continue;
+    if (Math.abs(player.x - beam.x) < beam.w * 0.5 + player.r - 3) {
+      endGame();
+      return;
+    }
+  }
+
+  particles.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; });
+  particles = particles.filter(p => p.life > 0);
+
+  // UI
+  const elapsed = getElapsed();
+  if (gameMode === 'endless') {
+    document.getElementById('score').textContent = 'SURVIVE';
+  }
+  document.getElementById('time').textContent = elapsed.toFixed(1) + 's';
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#ffffff22';
+  for (let i = 0; i < 45; i++) {
+    const x = (i * 83) % W;
+    const y = ((i * 137) + (performance.now() * 0.01 * i)) % H;
+    ctx.fillRect(x, y, 1.5, 1.5);
+  }
+
+  // beams
+  for (const beam of beams) {
+    const half = beam.w * 0.5;
+    const x0 = beam.x - half;
+    const isSweep = beam.type === 'sweep';
+    const dir = (beam.vx || 0) >= 0 ? 1 : -1;
+    if (!beam.active) {
+      const pulse = 0.4 + 0.35 * Math.sin(beam.age * 12);
+      const progress = Math.min(1, beam.age / beam.warn);
+      ctx.fillStyle = `rgba(255, 70, 110, ${0.12 + pulse * 0.14})`;
+      ctx.fillRect(x0, 0, beam.w, H);
+      ctx.strokeStyle = `rgba(255, 140, 180, ${0.55 + pulse * 0.4})`;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([8, 6]);
+      ctx.strokeRect(x0 + 1, 1, beam.w - 2, H - 2);
+      ctx.setLineDash([]);
+      ctx.fillStyle = `rgba(255, 160, 190, ${0.5 + pulse * 0.4})`;
+      ctx.fillRect(x0, 0, 3, H);
+      ctx.fillRect(x0 + beam.w - 3, 0, 3, H);
+      ctx.fillStyle = `rgba(255, 100, 140, ${0.25 + progress * 0.35})`;
+      ctx.fillRect(x0, 0, beam.w, H * progress);
+      ctx.fillStyle = 'rgba(255, 200, 220, 0.9)';
+      ctx.fillRect(x0, Math.max(0, H * progress - 4), beam.w, 4);
+      // Sweep: show move direction during warning
+      if (isSweep) {
+        ctx.fillStyle = `rgba(255, 230, 245, ${0.75 + pulse * 0.25})`;
+        ctx.font = 'bold 26px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const arrow = dir > 0 ? '▶▶▶' : '◀◀◀';
+        ctx.fillText(arrow, beam.x, H * 0.34);
+        ctx.fillText(arrow, beam.x, H * 0.56);
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(dir > 0 ? '右へ移動' : '左へ移動', beam.x, H * 0.45);
+      }
+    } else {
+      if (isSweep) {
+        const trailDir = -dir;
+        for (let t = 1; t <= 4; t++) {
+          ctx.fillStyle = `rgba(255, 80, 140, ${0.14 - t * 0.025})`;
+          ctx.fillRect(x0 + trailDir * t * 16, 0, beam.w, H);
+        }
+      }
+      const outer = ctx.createLinearGradient(x0 - 10, 0, x0 + beam.w + 10, 0);
+      outer.addColorStop(0, 'rgba(255, 40, 100, 0)');
+      outer.addColorStop(0.15, 'rgba(255, 60, 120, 0.35)');
+      outer.addColorStop(0.5, 'rgba(255, 80, 140, 0.5)');
+      outer.addColorStop(0.85, 'rgba(255, 60, 120, 0.35)');
+      outer.addColorStop(1, 'rgba(255, 40, 100, 0)');
+      ctx.fillStyle = outer;
+      ctx.fillRect(x0 - 12, 0, beam.w + 24, H);
+      ctx.fillStyle = 'rgba(255, 70, 130, 0.85)';
+      ctx.fillRect(x0, 0, beam.w, H);
+      const core = ctx.createLinearGradient(x0, 0, x0 + beam.w, 0);
+      core.addColorStop(0, 'rgba(255, 120, 160, 0.5)');
+      core.addColorStop(0.5, 'rgba(255, 245, 250, 1)');
+      core.addColorStop(1, 'rgba(255, 120, 160, 0.5)');
+      ctx.fillStyle = core;
+      ctx.fillRect(x0 + beam.w * 0.15, 0, beam.w * 0.7, H);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.fillRect(beam.x - Math.max(2, beam.w * 0.08), 0, Math.max(4, beam.w * 0.16), H);
+      ctx.fillStyle = 'rgba(255, 220, 240, 0.9)';
+      ctx.fillRect(x0 - 2, 0, beam.w + 4, 8);
+      ctx.fillRect(x0 - 2, H - 8, beam.w + 4, 8);
+      if (isSweep) {
+        const leadX = dir > 0 ? x0 + beam.w + 8 : x0 - 8;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const ch = dir > 0 ? '▶' : '◀';
+        for (let i = 0; i < 5; i++) ctx.fillText(ch, leadX, H * (0.15 + i * 0.18));
+      }
+    }
+  }
+
+  // enemy bullets
+  for (const b of bullets) {
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r + 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff557722';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff718c';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.25, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+  }
+
+  // player shots
+  for (const s of playerShots) {
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r + 2, 0, Math.PI * 2);
+    ctx.fillStyle = '#7cf8';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = '#b8f0ff';
+    ctx.fill();
+  }
+
+  // enemies
+  for (const e of enemies) {
+    const isBoss = e.kind === 'boss';
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r + 6, 0, Math.PI * 2);
+    ctx.fillStyle = isBoss ? '#ff6b3a33' : '#ff557722';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+    ctx.fillStyle = isBoss ? '#ff8a50' : '#ff6b8a';
+    ctx.fill();
+    // emoji / face
+    if (e.label) {
+      ctx.font = `${Math.floor(e.r * 1.1)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(e.label, e.x, e.y + 1);
+    } else {
+      ctx.beginPath();
+      ctx.arc(e.x, e.y - e.r * 0.2, e.r * 0.35, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff8';
+      ctx.fill();
+    }
+    // HP bar
+    const bw = e.r * 2;
+    const ratio = e.hp / e.maxHp;
+    ctx.fillStyle = '#0006';
+    ctx.fillRect(e.x - bw / 2, e.y - e.r - 10, bw, 4);
+    ctx.fillStyle = ratio > 0.4 ? '#6fdf9a' : '#ff6b6b';
+    ctx.fillRect(e.x - bw / 2, e.y - e.r - 10, bw * ratio, 4);
+  }
+
+  // particles
+  for (const p of particles) {
+    ctx.fillStyle = `rgba(180,220,255,${Math.max(0, p.life * 3)})`;
+    ctx.fillRect(p.x, p.y, 3, 3);
+  }
+
+  // player
+  if (player) {
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.r + 9, 0, Math.PI * 2);
+    ctx.fillStyle = '#6c7cff22';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+    ctx.fillStyle = '#aab5ff';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+  }
+}
+
+function loop(now) {
+  if (!running) return;
+  if (paused) {
+    draw();
+    return;
+  }
+  const dt = Math.min(0.033, (now - last) / 1000);
+  last = now;
+  update(dt);
+  draw();
+  if (running && !paused) requestAnimationFrame(loop);
+}
+
+function bind(el, side) {
+  const down = e => { e.preventDefault(); keys[side] = true; };
+  const up = e => { e.preventDefault(); keys[side] = false; };
+  el.addEventListener('pointerdown', down);
+  el.addEventListener('pointerup', up);
+  el.addEventListener('pointercancel', up);
+  el.addEventListener('pointerleave', up);
+}
+
+function isLeftKey(e) {
+  return e.key === 'ArrowLeft' || e.code === 'ArrowLeft' ||
+    e.key === 'a' || e.key === 'A' || e.code === 'KeyA' ||
+    e.code === 'Numpad4' || e.key === '4';
+}
+function isRightKey(e) {
+  return e.key === 'ArrowRight' || e.code === 'ArrowRight' ||
+    e.key === 'd' || e.key === 'D' || e.code === 'KeyD' ||
+    e.code === 'Numpad6' || e.key === '6';
+}
+// --- init ---
+try {
+  if (!localStorage.getItem(RANK_ENDLESS) && localStorage.getItem(OLD_RANK)) {
+    localStorage.setItem(RANK_ENDLESS, localStorage.getItem(OLD_RANK));
+  }
+} catch (e) {}
+
+rankingEndless = loadRanking(RANK_ENDLESS).map(normalizeEndlessEntry);
+rankingEndless.sort((a, b) => b.score - a.score);
+['easy', 'normal', 'hard'].forEach(d => {
+  rankingNormal[d] = loadRanking(RANK_NORMAL[d]);
+});
+try {
+  if (rankingNormal.normal.length === 0 && localStorage.getItem('danmakuRankingNormal')) {
+    rankingNormal.normal = loadRanking('danmakuRankingNormal');
+  }
+} catch (e) {}
+updateTitleStats();
+
+try {
+  const savedName = localStorage.getItem(NAME_KEY);
+  if (savedName) document.getElementById('nameInput').value = savedName;
+  const savedDiff = localStorage.getItem('danmakuDifficulty');
+  if (savedDiff && DIFF_LABEL[savedDiff]) difficulty = savedDiff;
+} catch (e) {}
+
+function syncDiffButtons() {
+  document.querySelectorAll('.diffBtn').forEach(btn => {
+    btn.classList.toggle('on', btn.dataset.diff === difficulty);
+  });
+  updateTitleStats();
+}
+syncDiffButtons();
+document.querySelectorAll('.diffBtn').forEach(btn => {
+  btn.onclick = () => {
+    difficulty = btn.dataset.diff;
+    try { localStorage.setItem('danmakuDifficulty', difficulty); } catch (e) {}
+    syncDiffButtons();
+  };
+});
+
+document.getElementById('normalBtn').onclick = () => startGame('normal');
+document.getElementById('endlessBtn').onclick = () => startGame('endless');
+document.getElementById('rankBtn').onclick = () => openRankMenu();
+document.getElementById('rankMenuNormal').onclick = () => openRankNormalDiffMenu();
+document.getElementById('rankMenuEndless').onclick = () => openRankDetail('endless');
+document.querySelectorAll('[data-rank-diff]').forEach(btn => {
+  btn.onclick = () => openRankDetail('normal', btn.dataset.rankDiff);
+});
+document.getElementById('backBtn').onclick = () => {
+  if (rankView === 'normal') openRankNormalDiffMenu();
+  else if (rankView !== 'menu') openRankMenu();
+  else goToTitle();
+};
+document.getElementById('retryBtn').onclick = () => startGame(gameMode);
+document.getElementById('titleBtn').onclick = () => goToTitle();
+document.getElementById('rankFromOverBtn').onclick = () => openRankMenu();
+document.getElementById('clearRetryBtn').onclick = () => startGame('normal');
+document.getElementById('clearTitleBtn').onclick = () => goToTitle();
+document.getElementById('clearRankBtn').onclick = () => openRankDetail('normal', difficulty);
+document.getElementById('resetRankBtn').onclick = () => {
+  if (rankView === 'menu' || rankView === 'normal-diff') return;
+  if (!confirm('このランキングをすべて削除しますか？')) return;
+  if (rankView === 'normal') {
+    rankingNormal[rankDiffView] = [];
+    saveRanking(RANK_NORMAL[rankDiffView], rankingNormal[rankDiffView]);
+    renderRankingList('normal', rankDiffView);
+  } else if (rankView === 'endless') {
+    rankingEndless = [];
+    saveRanking(RANK_ENDLESS, rankingEndless);
+    renderRankingList('endless');
+  }
+};
+document.getElementById('pauseBtn').onclick = e => { e.stopPropagation(); pauseGame(); };
+document.getElementById('resumeBtn').onclick = () => resumeGame();
+document.getElementById('pauseTitleBtn').onclick = () => goToTitle();
+
+bind(document.getElementById('left'), 'left');
+bind(document.getElementById('right'), 'right');
+
+addEventListener('keydown', e => {
+  if (isLeftKey(e)) { e.preventDefault(); if (!paused) keys.left = true; }
+  if (isRightKey(e)) { e.preventDefault(); if (!paused) keys.right = true; }
+  if ((e.key === 'Escape' || e.key === 'p' || e.key === 'P') && running) {
+    e.preventDefault();
+    if (paused) resumeGame(); else pauseGame();
+  }
+});
+addEventListener('keyup', e => {
+  if (isLeftKey(e)) { e.preventDefault(); keys.left = false; }
+  if (isRightKey(e)) { e.preventDefault(); keys.right = false; }
+});
+
+window.addEventListener('resize', resize);
+resize();
+show('title');
+
+document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
+document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
+document.addEventListener('gestureend', e => e.preventDefault(), { passive: false });
+document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
+document.addEventListener('touchmove', e => { if (running) e.preventDefault(); }, { passive: false });
+// Prevent long-press text selection / callout on mobile while playing
+document.addEventListener('selectstart', e => {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+  e.preventDefault();
+});
+document.addEventListener('contextmenu', e => {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+  e.preventDefault();
+});
+</script>
+</body>
+</html>
